@@ -1,0 +1,13 @@
+;; Default G-code generation config. Ported verbatim from kami-cam (Rust)
+;; `impl Default for GcodeConfig`.
+;;
+;; Canonical source of the default table — see materials.edn header for why
+;; kotoba.cam.gcode keeps a literal copy instead of reading this at runtime,
+;; and test/kotoba/cam/materials_edn_test.clj for the drift guard.
+{:machine-type    :mill-3axis
+ :post-processor  :fanuc
+ :units           :millimeters
+ :safe-height     5.0
+ :coordinate-system :g54
+ :program-number  1
+ :coolant         true}
