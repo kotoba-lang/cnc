@@ -171,6 +171,90 @@
         (is (str/includes? g "M30"))))))
 
 ;; -----------------------------------------------------------------------
+;; 4b. Face-mill: single-pass raster over the stock's top face (new --
+;;     the original Rust crate only had a placeholder for this op)
+;; -----------------------------------------------------------------------
+(deftest face-mill-rasters-the-stock-top-face
+  (let [[lib _] (tool/add (tool/empty-library) (sample-endmill))
+        s (stock/stock (stock/block 100.0 60.0 20.0) (stock/aluminum-6061))
+        job (-> (toolpath/new-job s lib)
+                (toolpath/add-operation
+                 {:op :face-mill :tool-id 1 :depth-of-cut 1.0
+                  :stepover 4.0 :feed-rate 900.0 :spindle-rpm 10000.0}))
+        segments (toolpath/generate-toolpath job)
+        linear (filter #(= :linear (:segment-type %)) segments)]
+    (testing "non-trivial linear cut coverage across the stock's Y extent"
+      (is (> (count linear) 5))
+      (is (every? #(= 1 (:tool-id %)) segments)))
+    (testing "all cuts are at stock-top minus depth-of-cut"
+      (doseq [seg linear]
+        (is (< (Math/abs (- (get-in seg [:start :z]) 19.0)) 1e-6))))
+    (testing "cuts span (approximately) the stock's full X width"
+      (is (some #(<= (get-in % [:start :x]) 3.0) linear))
+      (is (some #(>= (get-in % [:end :x]) 97.0) linear)))
+    (testing "G-code round-trip"
+      (let [g (gcode/generate-gcode segments gcode/default-config)]
+        (is (str/includes? g "G01"))
+        (is (str/includes? g "M30"))))))
+
+;; -----------------------------------------------------------------------
+;; 4c. Contour: convex-polygon offset following (new -- the original Rust
+;;     crate only had a placeholder for this op)
+;; -----------------------------------------------------------------------
+(deftest contour-offsets-a-square-outward
+  (testing "offsetting a unit square outward by the tool radius (3mm) grows
+            each side by 2x the offset -- verified against the analytic result"
+    (let [square [(vec3/v3 0.0 0.0 0.0) (vec3/v3 10.0 0.0 0.0)
+                  (vec3/v3 10.0 10.0 0.0) (vec3/v3 0.0 10.0 0.0)]]
+      (is (toolpath/convex-ccw? square))
+      (let [offset (toolpath/offset-convex-polygon square 3.0)]
+        (is (every? #(< (Math/abs (- (:x %) -3.0)) 1e-9)
+                    [(nth offset 0) (nth offset 3)]))
+        (is (every? #(< (Math/abs (- (:x %) 13.0)) 1e-9)
+                    [(nth offset 1) (nth offset 2)]))))))
+
+(deftest contour-toolpath-follows-outside-offset
+  (let [[lib _] (tool/add (tool/empty-library) (sample-endmill))
+        s (stock/stock (stock/block 100.0 100.0 20.0) (stock/aluminum-6061))
+        square [(vec3/v3 10.0 10.0 20.0) (vec3/v3 40.0 10.0 20.0)
+                (vec3/v3 40.0 40.0 20.0) (vec3/v3 10.0 40.0 20.0)]
+        job (-> (toolpath/new-job s lib)
+                (toolpath/add-operation
+                 {:op :contour :tool-id 1 :depth 2.0 :side :outside
+                  :feed-rate 700.0 :spindle-rpm 9000.0 :profile square}))
+        segments (toolpath/generate-toolpath job)
+        linear (filter #(= :linear (:segment-type %)) segments)]
+    (testing "closed loop: 4 linear edges for a 4-point square profile"
+      (is (= 4 (count linear))))
+    (testing "cuts at stock-top (20.0) minus depth (2.0)"
+      (is (every? #(< (Math/abs (- (get-in % [:start :z]) 18.0)) 1e-6) linear)))
+    (testing ":outside offsets past the profile by the 3mm tool radius"
+      (is (some #(< (get-in % [:start :x]) 10.0) linear)))
+    (testing "G-code round-trip"
+      (let [g (gcode/generate-gcode segments gcode/default-config)]
+        (is (str/includes? g "G01"))
+        (is (str/includes? g "M30"))))))
+
+(deftest contour-rejects-concave-profile-falls-back-to-placeholder
+  (testing "a concave/non-CCW profile isn't offset (would self-intersect) --
+            gen-contour declines and generate-toolpath falls back to the
+            same placeholder rapid the crate uses for unimplemented ops,
+            not a silently wrong toolpath"
+    (let [[lib _] (tool/add (tool/empty-library) (sample-endmill))
+          s (stock/stock (stock/block 100.0 100.0 20.0) (stock/aluminum-6061))
+          concave [(vec3/v3 0.0 0.0 20.0) (vec3/v3 10.0 0.0 20.0)
+                   (vec3/v3 5.0 5.0 20.0) (vec3/v3 10.0 10.0 20.0)
+                   (vec3/v3 0.0 10.0 20.0)]
+          job (-> (toolpath/new-job s lib)
+                  (toolpath/add-operation
+                   {:op :contour :tool-id 1 :depth 2.0 :side :outside
+                    :feed-rate 700.0 :profile concave}))
+          segments (toolpath/generate-toolpath job)]
+      (is (not (toolpath/convex-ccw? concave)))
+      (is (empty? (filter #(= :linear (:segment-type %)) segments)))
+      (is (some #(= :rapid (:segment-type %)) segments)))))
+
+;; -----------------------------------------------------------------------
 ;; 5. Material presets (Rust: material_presets)
 ;; -----------------------------------------------------------------------
 (deftest material-presets
