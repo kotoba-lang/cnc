@@ -7,7 +7,7 @@ vocabulary (G00/G01/G02/G03/G21/G90/M03/M05/M06/M08/M09/M30, ...) is the
 command set ISO 6983-1 (née RS274D/EIA RS-274, ISO-standardized 1980)
 defines — the reverse-domain naming this monorepo uses for repos that
 genuinely conform to a named external spec's format (same bar as
-`org-iso-jpeg`/`org-iso-h264`/`org-iso-isobmff`). See ADR-2607084000.
+`org-iso-jpeg`/`org-iso-h264`/`org-iso-isobmff`). See ADR-2607084200.
 
 **CNC machining (CAM) domain logic in pure Clojure.** A
 [kotoba-lang](https://github.com/kotoba-lang) capability library:
@@ -48,7 +48,7 @@ unresolved for the repo owner; not touched here per this migration's
 "don't step on concurrent work" policy.
 
 Renamed again 2026-07-08, `cnc` → `org-iso-6983` — see the note at the
-top of this README and ADR-2607084000. The Clojure namespace stays
+top of this README and ADR-2607084200. The Clojure namespace stays
 `kotoba.cam.*` (this rename is a GitHub repo name only, matching the
 reverse-domain convention used for other real-spec-conforming repos in
 this monorepo; it isn't a namespace rename).
