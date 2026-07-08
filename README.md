@@ -48,7 +48,7 @@ unresolved for the repo owner; not touched here per this migration's
 | `kotoba.cam.util` | (formatting internals of `gcode.rs`) | Portable fixed-point number formatting (Rust `{:.N}`/`{:0width}` equivalents) |
 | `kotoba.cam.tool` | `src/tool.rs` | `Tool`, tool library (pure — `add`/`remove` return `[library' previous]`) |
 | `kotoba.cam.stock` | `src/stock.rs` | `Stock`, `StockShape`, `CamMaterial` + presets |
-| `kotoba.cam.toolpath` | `src/toolpath.rs` | `CamOperation`, `CamJob`, `generate-toolpath` (zigzag pocket, peck drill) |
+| `kotoba.cam.toolpath` | `src/toolpath.rs` | `CamOperation`, `CamJob`, `generate-toolpath` (zigzag pocket, peck drill, single-pass raster face-mill, convex-polygon-offset contour) |
 | `kotoba.cam.gcode` | `src/gcode.rs` | `generate-gcode` — segments + config → G-code text |
 | `kotoba.cam` | `src/lib.rs` | Aggregator/docs namespace |
 
@@ -104,7 +104,8 @@ never drift apart.
 `test/kotoba/cam_test.cljc` ports the 5 test cases from the Rust crate's
 `src/tests.rs` 1:1 (`tool-library-crud`, `gcode-header-footer-valid`,
 `gcode-arc-output`, `pocket-toolpath-generates-segments`,
-`material-presets`) as parity tests.
+`material-presets`) as parity tests, plus new coverage (beyond the
+original Rust scope) for `:face-mill` and `:contour`.
 
 ```sh
 clojure -M:test
@@ -120,11 +121,24 @@ had **no GPU/render/OS/wasm-bindgen bridge code** to begin with (confirmed
 by grepping the recovered source for `kami_eng`/`wasm_bindgen`, no hits).
 Everything in the crate is pure CAM domain logic and has been ported.
 
-Not implemented (matches the Rust original, which only stubbed these as
-placeholder rapid moves — no real geometry engine was ever wired in):
+`:face-mill` (single-pass raster over the stock's top face, derived from
+`(:stock job)` rather than a caller-specified region) and `:contour`
+(offset-following a caller-supplied convex CCW polygon `:profile`,
+`:side` :inside/:outside/:on-line) now generate real toolpaths — beyond
+the original Rust crate's scope, which only stubbed every non-pocket/
+drill op as a placeholder rapid move. `:contour` still falls back to that
+same placeholder for a concave/self-intersecting profile (general polygon
+offsetting needs self-intersection resolution this doesn't implement —
+see `kotoba.cam.toolpath/convex-ccw?`).
 
-- Real toolpath generation for `:face-mill`, `:contour`, `:surface-3d`,
-  `:turn` operations (`PocketStrategy::Spiral`/`TrochoidalPeel` and all
+Still not implemented (matches the Rust original, which only stubbed
+these as placeholder rapid moves — no real geometry engine was ever wired
+in):
+
+- Real toolpath generation for `:surface-3d` (3D mesh height-field
+  following) and `:turn` (2-axis polar lathe turning) — genuinely
+  different algorithms/paradigms from raster facing or polygon offsetting,
+  not attempted here (`PocketStrategy::Spiral`/`TrochoidalPeel` and all
   `SurfaceStrategy` variants are likewise unimplemented placeholders in the
   original).
 - Any renderer/viewport integration (the original crate had none — toolpath
