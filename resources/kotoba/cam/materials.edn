@@ -7,8 +7,4 @@
 ;; the .cljc stays free of file IO and portable to cljs/wasm) — instead
 ;; test/kotoba/cam/materials_edn_test.clj asserts the embedded literal and
 ;; this file never drift apart.
-{:aluminum-6061    {:name "Aluminum 6061-T6"    :density 2.70 :hardness 95.0}
- :steel-1045       {:name "Steel 1045"          :density 7.87 :hardness 163.0}
- :titanium-ti6al4v {:name "Titanium Ti-6Al-4V"  :density 4.43 :hardness 334.0}
- :abs-plastic      {:name "ABS Plastic"         :density 1.04 :hardness 10.0}
- :wood-oak         {:name "Oak (Red)"           :density 0.66 :hardness 6.0}}
+[{:db/id -1, :kotoba.cam.materials/aluminum-6061 "{:name \"Aluminum 6061-T6\", :density 2.7, :hardness 95.0}", :kotoba.cam.materials/steel-1045 "{:name \"Steel 1045\", :density 7.87, :hardness 163.0}", :kotoba.cam.materials/titanium-ti6al4v "{:name \"Titanium Ti-6Al-4V\", :density 4.43, :hardness 334.0}", :kotoba.cam.materials/abs-plastic "{:name \"ABS Plastic\", :density 1.04, :hardness 10.0}", :kotoba.cam.materials/wood-oak "{:name \"Oak (Red)\", :density 0.66, :hardness 6.0}"}]

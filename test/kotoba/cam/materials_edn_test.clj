@@ -3,7 +3,15 @@
    tables as literals (to stay IO-free and portable, see kotoba.cam.stock /
    kotoba.cam.gcode docstrings). This test is the one place allowed to read
    the canonical resources/*.edn files and asserts they never drift from the
-   embedded copies."
+   embedded copies.
+
+   The resources/*.edn files are Datomic/Datascript tx-data (see
+   scripts/edn-datomize.bb / schema.edn at repo root): a single-entity
+   vector with namespace-prefixed attrs, non-scalar values pr-str'd into
+   blob strings. `reconstitute-entity` undoes that wrapping (strips the
+   :kotoba.cam.* namespace, edn/read-string's any blob strings) so the
+   drift comparison below is against the original bare-keyed map shape,
+   unchanged from before the tx-data wrap."
   (:require [clojure.test :refer [deftest is]]
             [clojure.java.io :as io]
             [clojure.edn :as edn]
@@ -13,8 +21,18 @@
 (defn- read-edn-resource [path]
   (edn/read-string (slurp (io/resource path))))
 
+(defn- unblob [v]
+  (if (string? v)
+    (try (let [parsed (edn/read-string v)] (if (coll? parsed) parsed v))
+         (catch Exception _ v))
+    v))
+
+(defn- reconstitute-entity [tx-data]
+  (into {} (map (fn [[k v]] [(keyword (name k)) (unblob v)]))
+        (dissoc (first tx-data) :db/id)))
+
 (deftest materials-edn-matches-embedded-literal
-  (is (= (read-edn-resource "kotoba/cam/materials.edn") stock/material-presets)))
+  (is (= (reconstitute-entity (read-edn-resource "kotoba/cam/materials.edn")) stock/material-presets)))
 
 (deftest gcode-defaults-edn-matches-embedded-literal
-  (is (= (read-edn-resource "kotoba/cam/gcode-defaults.edn") gcode/default-config)))
+  (is (= (reconstitute-entity (read-edn-resource "kotoba/cam/gcode-defaults.edn")) gcode/default-config)))
